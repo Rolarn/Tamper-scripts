@@ -12,7 +12,7 @@
 | Скрипт | Что делает | Версия | Установка |
 |---|---|---|---|
 | [Inoreader: фото прямо в ленте](scripts/inoreader-photo-inline) | Фото из поста прямо в Inoreader, кнопки «сохранить и дальше», «открыть пост», «следующая запись» | 2.0.0 | [⬇ Установить](https://raw.githubusercontent.com/Rolarn/Tamper-scripts/main/scripts/inoreader-photo-inline/inoreader-photo-inline.user.js) |
-| [Громкость плееров: всегда 100%](scripts/media-volume-max) | Не даёт сайтам занижать громкость видео и аудио | 2.0.0 | [⬇ Установить](https://raw.githubusercontent.com/Rolarn/Tamper-scripts/main/scripts/media-volume-max/media-volume-max.user.js) |
+| [Видеоплееры: громкость 100% и перемотка](scripts/video-player-tweaks) | Перемотка двойным тапом, как в YouTube, на любых видео; сайты не могут занизить громкость | 2.0.0 | [⬇ Установить](https://raw.githubusercontent.com/Rolarn/Tamper-scripts/main/scripts/video-player-tweaks/video-player-tweaks.user.js) |
 
 ## Установка / Install
 

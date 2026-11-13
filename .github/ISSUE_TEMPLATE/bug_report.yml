@@ -8,7 +8,7 @@ body:
       label: Скрипт / Script
       options:
         - Inoreader — фото прямо в ленте
-        - Громкость плееров — всегда 100%
+        - Видеоплееры — громкость и перемотка
     validations:
       required: true
   - type: input
