@@ -1,0 +1,15 @@
+name: Идея / Feature request
+description: Предложить улучшение или новый скрипт / Suggest an improvement or a new script
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Что хочется / What you want
+      description: Какую задачу это решает? / What problem does it solve?
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Сайт / Site
