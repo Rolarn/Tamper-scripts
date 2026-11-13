@@ -1,0 +1,29 @@
+{
+  "name": "tamper-scripts",
+  "private": true,
+  "description": "Userscripts for Tampermonkey by Rolarn",
+  "license": "MIT",
+  "author": "Rolarn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rolarn/Tamper-scripts.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "meta": "node tools/meta.mjs",
+    "meta:check": "node tools/meta.mjs --check",
+    "test": "node --test \"test/*.test.js\"",
+    "check": "npm run lint && npm run meta:check && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "eslint-plugin-userscripts": "0.5.6",
+    "globals": "17.14.0",
+    "jsdom": "31.0.1"
+  }
+}

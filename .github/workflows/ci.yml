@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Headers and .meta.js
+        run: npm run meta:check
+
+      - name: Tests
+        run: npm test
+
+      # Изменённый скрипт обязан получить новую @version — иначе обновление не дойдёт до пользователей.
+      # A changed script must get a new @version, otherwise users never receive the update.
+      - name: Version bumped for changed scripts
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          status=0
+          for f in $(git diff --name-only "$BASE" HEAD -- 'scripts/*/*.user.js'); do
+            [ -f "$f" ] || continue
+            new=$(grep -m1 '^// @version' "$f" | awk '{print $3}')
+            old=$(git show "$BASE:$f" 2>/dev/null | grep -m1 '^// @version' | awk '{print $3}')
+            if [ -n "$old" ] && [ "$old" = "$new" ]; then
+              echo "::error file=$f::Скрипт изменён, но @version осталась $new / script changed but @version is still $new"
+              status=1
+            fi
+          done
+          exit $status

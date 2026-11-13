@@ -1,0 +1,5 @@
+# Единые переводы строк для всех текстовых файлов / Normalize line endings
+* text=auto eol=lf
+
+# Сгенерированные файлы заголовков: свёрнуты в диффах PR / Generated header files: collapsed in PR diffs
+*.meta.js linguist-generated=true

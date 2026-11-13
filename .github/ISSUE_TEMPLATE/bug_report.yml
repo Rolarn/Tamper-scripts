@@ -1,0 +1,44 @@
+name: Ошибка / Bug report
+description: Скрипт работает не так, как ожидалось / A script does not work as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: script
+    attributes:
+      label: Скрипт / Script
+      options:
+        - Inoreader — фото прямо в ленте
+        - Громкость плееров — всегда 100%
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия скрипта / Script version
+      description: Tampermonkey → Панель управления → столбец «Версия»
+      placeholder: 2.0.0
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Браузер и устройство / Browser and device
+      placeholder: Firefox 156 для Android, Xiaomi Mi 9T
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Адрес страницы / Page URL
+  - type: textarea
+    id: what
+    attributes:
+      label: Что ожидали и что произошло / Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Диагностика / Diagnostics
+      description: Для Inoreader-скрипта — меню Tampermonkey → «Скопировать диагностику», вставьте сюда.
+      render: text
