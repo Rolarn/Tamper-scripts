@@ -16,7 +16,7 @@ const entry = (id, href, tags) => `<div id="article_${id}" class="ar" data-tags=
 
 function setup() {
   const dom = new JSDOM(`<body><div id="reader_pane">
-    ${entry(1, 'https://beautifulpeoplex.tumblr.com/post/831719253556248576', PHOTO)}
+    ${entry(1, 'https://someblog.tumblr.com/post/831719253556248576', PHOTO)}
     ${entry(2, 'https://gone.tumblr.com/post/111111222222', PHOTO)}
     ${entry(3, 'https://gone.tumblr.com/post/333333444444', PHOTO)}
     ${entry(4, 'https://news.example/x', OTHER)}
@@ -35,7 +35,7 @@ function setup() {
     io.requests.push(o.url);
     setTimeout(() => {
       if (o.responseType === 'blob') return o.onload({ status: 200, response: new w.Blob(['x'], { type: 'image/png' }) });
-      if (o.url.includes('beautifulpeoplex.tumblr.com/api')) {
+      if (o.url.includes('someblog.tumblr.com/api')) {
         return o.onload({ status: 200, responseText: 'var tumblr_api_read = ' + JSON.stringify({ posts: [{
           slug: 'ave-estel', 'regular-title': '',
           'regular-body': '<div class="npf_row"><figure><img src="https://64.media.tumblr.com/a/b/s640x960/f.png" ' +

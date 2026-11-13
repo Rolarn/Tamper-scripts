@@ -17,7 +17,7 @@ function page(url = 'https://example.com/', { stored, src = SRC } = {}) {
 }
 
 test('KVS: сохранённые 0.3 становятся 1 / stored 0.3 becomes 1', () => {
-  const { w } = page('https://g.porno666.fo/video/1/', { stored: '0.3' });
+  const { w } = page('https://videos.example/video/1/', { stored: '0.3' });
   assert.equal(w.localStorage.getItem('volume'), '1');
 });
 
