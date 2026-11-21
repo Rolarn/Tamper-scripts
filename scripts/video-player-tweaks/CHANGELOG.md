@@ -3,6 +3,17 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.1.0] — 2026-11-21
+
+### Добавлено / Added
+- Свайпы, как в MX Player: вертикальный свайп по левой половине видео — яркость (10–150%), по правой — громкость (0–100%). По умолчанию только в полноэкранном режиме, чтобы не мешать прокрутке страницы.
+  MX Player-style swipes: vertical swipe on the left half of the video = brightness (10–150%), right half = volume (0–100%). Fullscreen only by default so page scrolling is unaffected.
+- Настройки `SWIPE_ENABLED`, `SWIPE_FULLSCREEN_ONLY`, `SWIPE_SENSITIVITY`, `BRIGHTNESS_MIN`, `BRIGHTNESS_MAX`.
+
+### Изменено / Changed
+- «Громкость 100%» больше не перебивает громкость, выставленную жестом.
+  "Volume 100%" no longer overrides a volume set by gesture.
+
 ## [2.0.0] — 2026-11-13
 
 ### Добавлено / Added
