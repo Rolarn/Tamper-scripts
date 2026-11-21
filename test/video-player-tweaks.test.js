@@ -164,3 +164,86 @@ test('На сайтах из SEEK_EXCLUDE перемотки нет / no seek on
   await sleep(120);
   assert.equal(v.currentTime, 50);
 });
+
+// ---------- Свайпы яркости и громкости / Brightness and volume swipes ----------
+
+function swipePage() {
+  const p = seekPage();
+  const { w, v } = p;
+  let fs = null;
+  Object.defineProperty(w.document, 'fullscreenElement', { get: () => fs, configurable: true });
+  p.enterFullscreen = () => { fs = w.document.body; w.document.dispatchEvent(new w.Event('fullscreenchange')); };
+  p.exitFullscreen = () => { fs = null; w.document.dispatchEvent(new w.Event('fullscreenchange')); };
+  const touch = (type, x, y) => {
+    const e = new w.Event(type, { bubbles: true, cancelable: true });
+    const list = [{ clientX: x, clientY: y }];
+    Object.defineProperty(e, 'touches', { value: type === 'touchend' ? [] : list });
+    Object.defineProperty(e, 'changedTouches', { value: list });
+    v.dispatchEvent(e);
+    return e;
+  };
+  // Свайп по вертикали шагами, как настоящий палец. / A vertical swipe in steps, like a real finger.
+  p.swipe = (x, y0, y1) => {
+    touch('touchstart', x, y0);
+    const steps = 8;
+    let moved = null;
+    for (let i = 1; i <= steps; i++) moved = touch('touchmove', x, y0 + ((y1 - y0) * i) / steps);
+    touch('touchend', x, y1);
+    return moved;
+  };
+  return p;
+}
+
+test('Свайп вне полного экрана ничего не меняет и не мешает прокрутке / no effect outside fullscreen', () => {
+  const { v, swipe } = swipePage();
+  v.volume = 1;
+  const last = swipe(350, 130, 50);
+  assert.equal(last.defaultPrevented, false);
+  assert.equal(v.volume, 1);
+  assert.equal(v.style.filter, '');
+});
+
+test('Правая половина: громкость вниз и вверх, «громкость 100%» не мешает / right half: volume down and up', () => {
+  const { v, swipe, enterFullscreen } = swipePage();
+  enterFullscreen();
+  const last = swipe(350, 50, 130); // вниз на 80 px из 200 при чувствительности 0.8 → −50%
+  assert.equal(last.defaultPrevented, true);
+  assert.ok(Math.abs(v.volume - 0.5) < 0.01, 'volume ' + v.volume);
+  swipe(350, 140, 100); // вверх на 40 px → +25%
+  assert.ok(Math.abs(v.volume - 0.75) < 0.01, 'volume ' + v.volume);
+  v.dispatchEvent(new v.ownerDocument.defaultView.Event('play'));
+  assert.ok(Math.abs(v.volume - 0.75) < 0.01, 'запасной способ не вернул 100% / fallback did not reset to 100%');
+});
+
+test('Левая половина: яркость через фильтр, 100% — без фильтра / left half: brightness filter', () => {
+  const { v, swipe, enterFullscreen } = swipePage();
+  enterFullscreen();
+  swipe(50, 50, 130); // −50%
+  assert.match(v.style.filter, /^brightness\(0\.50?\)$/);
+  swipe(50, 130, 50); // +50% → снова 100%
+  assert.equal(v.style.filter, '');
+  swipe(50, 140, 10); // много вверх → упор в 150%
+  assert.match(v.style.filter, /^brightness\(1\.50?\)$/);
+});
+
+test('Горизонтальный свайп и выход из полного экрана не перехватываем / horizontal swipe and exit are ignored', () => {
+  const { w, v, swipe, enterFullscreen, exitFullscreen } = swipePage();
+  enterFullscreen();
+  v.volume = 1;
+  const touch = (type, x, y) => {
+    const e = new w.Event(type, { bubbles: true, cancelable: true });
+    const list = [{ clientX: x, clientY: y }];
+    Object.defineProperty(e, 'touches', { value: type === 'touchend' ? [] : list });
+    Object.defineProperty(e, 'changedTouches', { value: list });
+    v.dispatchEvent(e);
+    return e;
+  };
+  touch('touchstart', 300, 100);
+  const m = touch('touchmove', 380, 105);
+  touch('touchend', 380, 105);
+  assert.equal(m.defaultPrevented, false);
+  assert.equal(v.volume, 1);
+  exitFullscreen();
+  assert.equal(swipe(350, 50, 130).defaultPrevented, false);
+  assert.equal(v.volume, 1);
+});
