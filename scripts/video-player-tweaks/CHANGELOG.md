@@ -3,6 +3,18 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.1.1] — 2026-11-22
+
+### Исправлено / Fixed
+- Двойной тап иногда ставил видео на паузу (или запускал его). Плееры принимают первый тап за одиночный и переключают паузу — часто с задержкой 0,2–0,3 с, уже после того, как скрипт вернул воспроизведение. Теперь всю серию тапов и ещё 0,5 с после неё любое изменение паузы/пуска этого видео сразу отменяется. Работает и с плеерами, которые реагируют на само касание.
+  Double tap sometimes paused (or started) the video: players toggle on the first tap, often 0.2–0.3 s late, after the script had already restored playback. Now any play/pause change of that video is reverted for the whole series and 0.5 s after it.
+- Тап по центру сразу после перемотки (в течение ~1 с) не доходил до плеера. Теперь любое новое касание вне стороны серии сразу работает как обычно.
+  A centre tap right after seeking was swallowed for ~1 s; new touches outside the series side now work immediately.
+
+### Изменено / Changed
+- Окно продолжения серии — 1 с вместо 0,7 с, как в YouTube. / Series window is 1 s instead of 0.7 s, like YouTube.
+- В README добавлены схемы зон касания. / Tap-zone diagrams added to the README.
+
 ## [2.1.0] — 2026-11-21
 
 ### Добавлено / Added
