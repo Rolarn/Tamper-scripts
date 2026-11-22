@@ -81,11 +81,19 @@ function seekPage(url = 'https://videos.example/v/1', src = SRC) {
   Object.defineProperty(v, 'duration', { value: 100 });
   Object.defineProperty(v, 'currentTime', { value: 50, writable: true });
   Object.defineProperty(v, 'paused', { get: () => paused });
-  v.play = () => { paused = false; return Promise.resolve(); };
-  v.pause = () => { paused = true; };
-  // Плеер сайта: тап по видео — пауза/пуск. / Site player: a tap toggles play/pause.
-  const player = { clicks: 0 };
-  v.addEventListener('click', () => { player.clicks++; paused = !paused; });
+  // Как в браузере: play/pause шлют события. / Like a browser: play/pause fire events.
+  v.play = () => { if (paused) { paused = false; v.dispatchEvent(new w.Event('play')); } return Promise.resolve(); };
+  v.pause = () => { if (!paused) { paused = true; v.dispatchEvent(new w.Event('pause')); } };
+  const toggle = () => (paused ? v.play() : v.pause());
+  // Плеер сайта: тап по видео — пауза/пуск; режим настраивается тестом.
+  // Site player: a tap toggles play/pause; the mode is set by the test.
+  const player = { clicks: 0, mode: 'click', delay: 0 };
+  v.addEventListener('click', () => {
+    player.clicks++;
+    if (player.mode !== 'click') return;
+    if (player.delay) setTimeout(toggle, player.delay); else toggle();
+  });
+  v.addEventListener('pointerdown', () => { if (player.mode === 'pointerdown') toggle(); });
 
   const touch = (type, x, y, target) => {
     const e = new w.Event(type, { bubbles: true, cancelable: true });
@@ -98,6 +106,9 @@ function seekPage(url = 'https://videos.example/v/1', src = SRC) {
   // Тап как в браузере: клик приходит, только если touchend не отменён.
   // A browser-like tap: the click arrives only if touchend was not cancelled.
   const tap = (x, y, target = v) => {
+    const pd = new w.Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(pd, { pointerType: 'touch', clientX: x, clientY: y });
+    target.dispatchEvent(pd);
     touch('touchstart', x, y, target);
     const end = touch('touchend', x, y, target);
     if (!end.defaultPrevented) target.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
@@ -246,4 +257,60 @@ test('Горизонтальный свайп и выход из полного 
   exitFullscreen();
   assert.equal(swipe(350, 50, 130).defaultPrevented, false);
   assert.equal(v.volume, 1);
+});
+
+// ---------- Двойной тап не ставит на паузу (2.1.1) / Double tap does not pause (2.1.1) ----------
+
+test('Плеер с отложенной паузой: двойной тап не ставит на паузу / delayed-toggle player: no pause', async () => {
+  const { v, tap, player, isPaused } = seekPage();
+  player.delay = 300; // плеер ждёт, не двойной ли это тап / the player waits for a possible double tap
+  tap(350, 100);
+  await sleep(80);
+  tap(350, 100);
+  await sleep(900);
+  assert.equal(v.currentTime, 60);
+  assert.equal(isPaused(), false);
+});
+
+test('Плеер реагирует на касание: серия из 4 тапов не меняет паузу / pointerdown player: 4-tap series keeps state', async () => {
+  const { v, tap, player, isPaused } = seekPage();
+  player.mode = 'pointerdown';
+  for (let i = 0; i < 4; i++) { tap(40, 100); await sleep(80); }
+  await sleep(300);
+  assert.equal(v.currentTime, 20);
+  assert.equal(isPaused(), false);
+});
+
+test('На паузе: двойной тап не запускает видео / paused video stays paused', async () => {
+  const { v, tap, player, isPaused } = seekPage();
+  v.pause();
+  player.delay = 250;
+  tap(350, 100);
+  await sleep(80);
+  tap(350, 100);
+  await sleep(900);
+  assert.equal(v.currentTime, 60);
+  assert.equal(isPaused(), true);
+});
+
+test('Тап по центру сразу после серии ставит паузу как обычно / centre tap right after a series pauses normally', async () => {
+  const { tap, isPaused } = seekPage();
+  tap(350, 100);
+  await sleep(80);
+  tap(350, 100);
+  await sleep(200);
+  tap(200, 100); // пауза по центру, пока охрана ещё активна / centre pause while the guard is active
+  await sleep(200);
+  assert.equal(isPaused(), true);
+});
+
+test('Серия продолжается до 1 с между тапами / series continues up to 1 s between taps', async () => {
+  const { v, tap } = seekPage();
+  tap(350, 100);
+  await sleep(80);
+  tap(350, 100);
+  await sleep(850);
+  tap(350, 100);
+  await sleep(100);
+  assert.equal(v.currentTime, 70);
 });

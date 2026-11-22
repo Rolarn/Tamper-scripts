@@ -2,7 +2,7 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.1.0
+// @version         2.1.1
 // @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for brightness and volume.
 // @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, и свайпы яркости и громкости, как в MX Player.
 // @author          Rolarn
@@ -214,6 +214,10 @@
     blockClicksUntil = now + ms;
     blockRect = rect;
   }
+  function unblockClicks() {
+    blockClicksUntil = 0;
+    blockRect = null;
+  }
   function onClickLike(e) {
     const r = blockRect;
     if (r && e.timeStamp < blockClicksUntil &&
@@ -231,7 +235,9 @@
   // =========================================================
   function setupSeek() {
     const DOUBLE_TAP_MS = 300; // окно для второго тапа / window for the second tap
-    const SERIES_MS = 700; // окно для продолжения серии / window to continue a series
+    const SERIES_MS = 1000; // окно для продолжения серии, как в YouTube / window to continue a series, like YouTube
+    const GUARD_TAIL_MS = 500; // охрана паузы/пуска после серии / play-state guard after a series
+    const GUARD_MAX_FIXES = 6; // не спорим с плеером бесконечно / never fight a player forever
     const TAP_MAX_MS = 350; // дольше — это уже не тап / longer press is not a tap
     const TAP_MAX_MOVE = 20; // px; больше — это свайп / more is a swipe
     const SIDE_ZONE = 0.35; // левая и правая треть видео / left and right third of the video
@@ -240,6 +246,8 @@
     let start = null; // текущее касание / current touch
     let pending = null; // первый тап, ждём второй / first tap awaiting the second
     let series = null; // идущая серия перемотки / running seek series
+    let guard = null; // охрана паузы/пуска / play-state guard
+    let down = null; // состояние видео в момент касания / video state at touch-down
 
     // Сторона тапа: -1 слева, +1 справа, 0 — центр. / Tap side: -1 left, +1 right, 0 centre.
     function sideOf(rect, x) {
@@ -256,14 +264,52 @@
       return true;
     }
 
-    // Первый тап серии плеер уже обработал (обычно пауза/пуск) — возвращаем как было.
-    // The player already handled the first tap (usually play/pause) — put it back.
-    function restorePlayState(video, wasPaused) {
-      setTimeout(() => {
-        if (video.paused === wasPaused) return;
-        if (wasPaused) video.pause();
-        else video.play()?.catch?.(() => {});
-      }, 60);
+    // Охрана паузы/пуска. Первый тап серии плеер принимает за одиночный и ставит паузу (или пуск),
+    // причём многие плееры делают это с задержкой 0,2–0,3 с, чтобы отличить тап от двойного.
+    // Поэтому, пока идёт серия и ещё GUARD_TAIL_MS после неё, любое изменение паузы/пуска этого
+    // видео сразу отменяется — когда бы и чем бы плеер его ни вызвал.
+    // Play-state guard. The player takes the first tap of a series for a single tap and toggles
+    // pause, often 0.2–0.3 s late to tell a tap from a double tap. So while the series runs and
+    // GUARD_TAIL_MS after it, any play/pause change of that video is reverted right away.
+    function startGuard(video, wantPaused) {
+      guard = { video, wantPaused, until: performance.now() + SERIES_MS + GUARD_TAIL_MS, fixes: 0 };
+      enforceGuard();
+    }
+
+    function extendGuard() {
+      if (guard) guard.until = performance.now() + SERIES_MS + GUARD_TAIL_MS;
+    }
+
+    function enforceGuard() {
+      const g = guard;
+      if (!g) return;
+      if (performance.now() > g.until || g.fixes >= GUARD_MAX_FIXES) { guard = null; return; }
+      const v = g.video;
+      if (v.paused === g.wantPaused) return;
+      g.fixes++;
+      if (g.wantPaused) v.pause();
+      else v.play()?.catch?.(() => {});
+    }
+
+    const onPlayState = (e) => {
+      if (guard && e.target === guard.video) enforceGuard();
+    };
+
+    // Касание вне стороны серии — это уже новое действие пользователя (например, пауза по центру):
+    // охрану и гашение кликов снимаем до того, как плеер его получит. pointerdown приходит раньше touchstart,
+    // и некоторые плееры реагируют уже на него — поэтому и состояние видео запоминаем здесь.
+    // A touch outside the series side is a new user action (say, pause in the centre): drop the
+    // guard and click swallowing before the player sees it. pointerdown comes before touchstart and some players
+    // react to it already, so the video state is recorded here too.
+    function onPointerDown(e) {
+      if (e.pointerType !== 'touch') return;
+      const hit = videoAt(e.clientX, e.clientY);
+      down = hit && { video: hit.video, paused: hit.video.paused, time: performance.now() };
+      const continuing = hit && series && hit.video === series.video && sideOf(hit.rect, e.clientX) === series.side;
+      if (!continuing) {
+        guard = null;
+        unblockClicks();
+      }
     }
 
     function hint(rect, side, total) {
@@ -281,7 +327,9 @@
     function onTouchStart(e) {
       const hit = gestureTarget(e, SEEK_FULLSCREEN_ONLY);
       // Состояние до того, как плеер отреагирует на тап. / State before the player reacts to the tap.
-      start = hit && { x: hit.x, y: hit.y, time: e.timeStamp, video: hit.video, wasPaused: hit.video.paused };
+      const early = down && hit && down.video === hit.video && performance.now() - down.time < 200;
+      const wasPaused = early ? down.paused : hit?.video.paused;
+      start = hit && { x: hit.x, y: hit.y, time: e.timeStamp, video: hit.video, wasPaused };
     }
 
     function onTouchEnd(e) {
@@ -300,6 +348,7 @@
         if (!seekBy(s.video, side * SEEK_STEP)) return;
         series.total += SEEK_STEP;
         series.last = now;
+        extendGuard();
         swallow(e, now, rect);
         hint(rect, side, series.total);
         return;
@@ -311,7 +360,7 @@
         if (!seekBy(s.video, side * SEEK_STEP)) { pending = null; return; }
         series = { video: s.video, side, total: SEEK_STEP, last: now };
         swallow(e, now, rect);
-        restorePlayState(s.video, pending.wasPaused);
+        startGuard(s.video, pending.wasPaused);
         hint(rect, side, SEEK_STEP);
         pending = null;
         return;
@@ -324,9 +373,13 @@
 
     // touchstart — пассивный (не мешает прокрутке); touchend — нет, чтобы погасить лишний тап.
     // touchstart is passive (does not slow scrolling); touchend is not, to swallow the extra tap.
+    window.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
     window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
     window.addEventListener('touchend', onTouchEnd, { capture: true, passive: false });
     window.addEventListener('touchcancel', () => { start = null; }, { capture: true, passive: true });
+    // События медиа не всплывают — ловим на перехвате. / Media events do not bubble — use capture.
+    document.addEventListener('play', onPlayState, true);
+    document.addEventListener('pause', onPlayState, true);
   }
 
   // =========================================================

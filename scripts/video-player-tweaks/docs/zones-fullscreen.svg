@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="270" viewBox="0 0 380 270" role="img"><title>Зоны касания: полноэкранный плеер</title><desc>Те же зоны двойного тапа, плюс вертикальные свайпы: левая половина видео — яркость, правая — громкость.</desc>
+<style>
+text{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.th{font-size:14px;font-weight:600}.ts{font-size:12px}
+.teal rect{fill:#E1F5EE;stroke:#0F6E56}.teal .th{fill:#085041}.teal .ts{fill:#0F6E56}
+.gray rect{fill:#F1EFE8;stroke:#5F5E5A}.gray .ts{fill:#444441}
+.neu rect{fill:#FFFFFF;stroke:#B4B2A9}.neu .th{fill:#2C2C2A}.neu .ts{fill:#5F5E5A}
+.cap{fill:#5F5E5A}.div{stroke:#888780}
+@media (prefers-color-scheme:dark){
+.teal rect{fill:#085041;stroke:#5DCAA5}.teal .th{fill:#E1F5EE}.teal .ts{fill:#9FE1CB}
+.gray rect{fill:#444441;stroke:#B4B2A9}.gray .ts{fill:#F1EFE8}
+.neu rect{fill:#2C2C2A;stroke:#888780}.neu .th{fill:#F1EFE8}.neu .ts{fill:#D3D1C7}
+.cap{fill:#B4B2A9}.div{stroke:#B4B2A9}}
+</style>
+<g class="gray"><rect x="40" y="30" width="300" height="20" rx="4" stroke-width="0.5"/><text class="ts" x="190" y="40.0" text-anchor="middle" dominant-baseline="central">Кнопки плеера (12%)</text></g>
+<g class="teal"><rect x="40" y="52" width="103" height="129" rx="4" stroke-width="0.5"/><text class="th" x="91" y="76" text-anchor="middle" dominant-baseline="central">−10 с</text><text class="ts" x="91" y="94" text-anchor="middle" dominant-baseline="central">2 тапа</text><text class="th" x="91" y="132" text-anchor="middle" dominant-baseline="central">Яркость</text><text class="ts" x="91" y="150" text-anchor="middle" dominant-baseline="central">свайп ↕</text></g>
+<g class="neu"><rect x="145" y="52" width="90" height="129" rx="4" stroke-width="0.5"/><text class="th" x="190" y="76" text-anchor="middle" dominant-baseline="central">Пауза</text><text class="ts" x="190" y="94" text-anchor="middle" dominant-baseline="central">1 тап</text><text class="ts" x="167" y="141" text-anchor="middle" dominant-baseline="central">☀ ↕</text><text class="ts" x="213" y="141" text-anchor="middle" dominant-baseline="central">♪ ↕</text></g>
+<line class="div" x1="190" y1="116" x2="190" y2="172" stroke-width="0.5" stroke-dasharray="3 3"/>
+<g class="teal"><rect x="237" y="52" width="103" height="129" rx="4" stroke-width="0.5"/><text class="th" x="288" y="76" text-anchor="middle" dominant-baseline="central">+10 с</text><text class="ts" x="288" y="94" text-anchor="middle" dominant-baseline="central">2 тапа</text><text class="th" x="288" y="132" text-anchor="middle" dominant-baseline="central">Громкость</text><text class="ts" x="288" y="150" text-anchor="middle" dominant-baseline="central">свайп ↕</text></g>
+<g class="gray"><rect x="40" y="183" width="300" height="37" rx="4" stroke-width="0.5"/><text class="ts" x="190" y="201.5" text-anchor="middle" dominant-baseline="central">Панель плеера (22%)</text></g>
+<text class="ts cap" x="190" y="244" text-anchor="middle" dominant-baseline="central">Пунктир — граница: левее яркость, правее громкость</text>
+</svg>
