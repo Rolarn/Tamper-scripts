@@ -354,3 +354,82 @@ test('Серия продолжается до 1 с между тапами / se
   await sleep(100);
   assert.equal(v.currentTime, 70);
 });
+
+// ---------- Кнопка «Открыть в MX Player» (2.3.0) / "Open in MX Player" button (2.3.0) ----------
+
+function mxPage(src, scriptSrc = SRC) {
+  const p = seekPage('https://videos.example/v/1', scriptSrc);
+  const { w, v } = p;
+  if (src) v.src = src;
+  w.document.title = 'Видео: тест';
+  p.links = [];
+  w.HTMLAnchorElement.prototype.click = function () { p.links.push({ href: this.href, target: this.target }); };
+  p.touchVideo = () => {
+    const e = new w.Event('touchstart', { bubbles: true, cancelable: true });
+    const list = [{ clientX: 200, clientY: 100 }];
+    Object.defineProperty(e, 'touches', { value: list });
+    Object.defineProperty(e, 'changedTouches', { value: list });
+    v.dispatchEvent(e);
+  };
+  p.mxButton = () => [...w.document.body.querySelectorAll('button')].find((b) => b.textContent === '▶ MX');
+  return p;
+}
+
+test('MX: касание видео показывает кнопку, тап открывает MX с позиции / touch shows button, tap opens MX at position', () => {
+  const p = mxPage('https://cdn.example/files/clip.mp4?token=abc&e=1#t=5');
+  p.touchVideo();
+  const btn = p.mxButton();
+  assert.ok(btn);
+  assert.equal(btn.style.display, 'block');
+  assert.equal(btn.style.left, '200px', 'по центру видео / centred over the video');
+  btn.click();
+  assert.equal(p.links.length, 1);
+  const { href, target } = p.links[0];
+  assert.equal(target, '_top');
+  assert.ok(href.startsWith('intent://cdn.example/files/clip.mp4?token=abc&e=1#Intent;'), href);
+  for (const part of ['action=android.intent.action.VIEW', 'scheme=https', 'type=video/*',
+    'package=com.mxtech.videoplayer.ad', 'i.position=50000', 'S.title=' + encodeURIComponent('Видео: тест')]) {
+    assert.ok(href.includes(';' + part), 'нет / missing ' + part);
+  }
+  assert.ok(href.endsWith(';end'));
+  assert.equal(p.isPaused(), true, 'видео в браузере на паузе / browser video paused');
+  assert.equal(btn.style.display, 'none');
+});
+
+test('MX: HLS-поток передаётся с типом application/x-mpegURL / HLS stream gets the HLS type', () => {
+  const p = mxPage('https://cdn.example/live/index.m3u8');
+  p.touchVideo();
+  p.mxButton().click();
+  assert.ok(p.links[0].href.includes(';type=application/x-mpegURL;'));
+});
+
+test('MX: для blob: кнопки нет / no button for blob: videos', () => {
+  const p = mxPage('blob:https://videos.example/123');
+  p.touchVideo();
+  assert.equal(p.mxButton(), undefined);
+});
+
+test('MX: кнопка прячется сама и при прокрутке / button hides by itself and on scroll', async () => {
+  const p = mxPage('https://cdn.example/a.mp4', SRC.replace('const MX_BUTTON_MS = 10000;', 'const MX_BUTTON_MS = 150;'));
+  p.touchVideo();
+  assert.equal(p.mxButton().style.display, 'block');
+  await sleep(250);
+  assert.equal(p.mxButton().style.display, 'none');
+  p.touchVideo();
+  p.w.dispatchEvent(new p.w.Event('scroll'));
+  assert.equal(p.mxButton().style.display, 'none');
+});
+
+test('MX: тап по кнопке не перематывает и не ставит паузу через плеер / button tap is not a player tap', async () => {
+  const p = mxPage('https://cdn.example/a.mp4');
+  p.touchVideo();
+  const btn = p.mxButton();
+  const tapBtn = () => {
+    const pd = new p.w.Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(pd, { pointerType: 'touch', clientX: 200, clientY: 20 });
+    btn.dispatchEvent(pd);
+  };
+  tapBtn();
+  assert.equal(p.player.clicks, 0);
+  assert.equal(p.v.currentTime, 50);
+});

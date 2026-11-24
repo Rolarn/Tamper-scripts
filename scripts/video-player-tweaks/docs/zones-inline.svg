@@ -12,7 +12,7 @@ text{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 .neu rect{fill:#2C2C2A;stroke:#888780}.neu .th{fill:#F1EFE8}.neu .ts{fill:#D3D1C7}
 .cap{fill:#B4B2A9}.div{stroke:#B4B2A9}}
 </style>
-<g class="gray"><rect x="40" y="30" width="300" height="20" rx="4" stroke-width="0.5"/><text class="ts" x="190" y="40.0" text-anchor="middle" dominant-baseline="central">Кнопки плеера (12%)</text></g>
+<g class="gray"><rect x="40" y="30" width="300" height="20" rx="4" stroke-width="0.5"/><text class="ts" x="190" y="40.0" text-anchor="middle" dominant-baseline="central">Кнопки плеера (12%) · по центру ▶ MX</text></g>
 <g class="teal"><rect x="40" y="52" width="103" height="109" rx="4" stroke-width="0.5"/><text class="th" x="91" y="88" text-anchor="middle" dominant-baseline="central">−10 с</text><text class="ts" x="91" y="108" text-anchor="middle" dominant-baseline="central">2 тапа</text><text class="ts" x="91" y="126" text-anchor="middle" dominant-baseline="central">ещё тап: −20</text></g>
 <g class="neu"><rect x="145" y="52" width="90" height="109" rx="4" stroke-width="0.5"/><text class="th" x="190" y="96" text-anchor="middle" dominant-baseline="central">Пауза</text><text class="ts" x="190" y="116" text-anchor="middle" dominant-baseline="central">1 тап</text></g>
 <g class="teal"><rect x="237" y="52" width="103" height="109" rx="4" stroke-width="0.5"/><text class="th" x="288" y="88" text-anchor="middle" dominant-baseline="central">+10 с</text><text class="ts" x="288" y="108" text-anchor="middle" dominant-baseline="central">2 тапа</text><text class="ts" x="288" y="126" text-anchor="middle" dominant-baseline="central">ещё тап: +20</text></g>

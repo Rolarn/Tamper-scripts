@@ -36,6 +36,17 @@
 - во время свайпа видно, куда перемотается: `+1:25 · 12:40 / 13:46`; перемотка происходит, когда отпускаете палец — одна загрузка вместо десятков, быстрее и бережнее к сети;
 - свайп по нижней панели плеера остаётся плееру, косые свайпы не перехватываются.
 
+## Открыть в MX Player
+
+- Коснитесь видео — вверху по центру на 10 секунд появится маленькая кнопка **▶ MX**.
+- Тап по ней ставит видео в браузере на паузу и открывает его в MX Player **с того же места**, с названием страницы вместо имени файла.
+- Firefox спросит «Открыть в другом приложении?» — подтвердите. Чтобы не спрашивал, в настройках Firefox выберите *Открывать ссылки в приложениях → Всегда*.
+- По умолчанию открывается бесплатная версия (`com.mxtech.videoplayer.ad`); для Pro поменяйте `MX_PACKAGE`.
+
+Когда кнопки нет или MX не откроет видео:
+- у видео нет обычной ссылки — сайт собирает его в браузере из кусков (адрес `blob:`, например YouTube); кнопка тогда не показывается;
+- сайт отдаёт видео только со своими cookies или заголовками — MX их не получит и покажет ошибку.
+
 ## Яркость и громкость свайпами
 
 Как в MX Player, в полноэкранном режиме:
@@ -78,6 +89,9 @@
 | `SCRUB_ENABLED` | `true` | Перемотка горизонтальным свайпом |
 | `SCRUB_FULLSCREEN_ONLY` | `false` | Перемотка свайпом только в полноэкранном режиме |
 | `SCRUB_FULL_WIDTH_SEC` | `120` | Сколько секунд даёт свайп на всю ширину видео |
+| `MX_ENABLED` | `true` | Кнопка «▶ MX» |
+| `MX_PACKAGE` | `com.mxtech.videoplayer.ad` | Какой MX Player открывать (`.pro` — Pro) |
+| `MX_BUTTON_MS` | `10000` | Сколько кнопка видна после касания, мс |
 
 > Настройки внутри файла перезапишутся при обновлении скрипта.
 
@@ -105,6 +119,7 @@
 
 - **Double-tap seek**, YouTube-style: double-tap the right third of any HTML5 video to skip 10 s forward, the left third to go back; every further tap adds 10 s. Centre, top strip and bottom control bar are left to the player. Disabled on YouTube, which has its own.
 - **Swipe seek**, MX Player-style, inline and in fullscreen: swipe left/right over the video to seek (full width = 2 min); the seek happens on release.
+- **Open in MX Player**: touch a video to show a small "▶ MX" button for 10 s; it pauses the video and opens it in MX Player at the same position (plain file/stream URLs only, no `blob:`).
 - **Brightness/volume swipes**, MX Player-style, in fullscreen: left half = brightness (a filter on the video, 10–150%), right half = player volume (0–100% of the system volume). Web pages cannot change screen brightness or system volume.
 - **Volume 100%**: raises the stored volume of KVS (`kt_player`) players and turns any non-zero volume of other players into 100%. Muting still works.
 
