@@ -3,6 +3,13 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.3.0] — 2026-11-24
+
+### Добавлено / Added
+- Кнопка «▶ MX»: появляется вверху по центру видео на 10 секунд после касания, ставит видео на паузу и открывает его в MX Player с той же позиции и с названием страницы. Не показывается для видео без обычной ссылки (`blob:`), прячется при прокрутке и смене полноэкранного режима.
+  "▶ MX" button: shown at the top centre for 10 s after touching a video; pauses it and opens it in MX Player at the same position with the page title. Hidden for videos without a plain URL (`blob:`), on scroll and on fullscreen change.
+- Настройки `MX_ENABLED`, `MX_PACKAGE`, `MX_BUTTON_MS`.
+
 ## [2.2.0] — 2026-11-24
 
 ### Добавлено / Added

@@ -2,9 +2,9 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.2.0
-// @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume.
-// @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, и свайпы перемотки, яркости и громкости, как в MX Player.
+// @version         2.3.0
+// @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume, plus a button to open the video in MX Player.
+// @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, свайпы перемотки, яркости и громкости, как в MX Player, и кнопку «открыть в MX Player».
 // @author          Rolarn
 // @license         MIT
 // @homepageURL     https://github.com/Rolarn/Tamper-scripts/tree/main/scripts/video-player-tweaks
@@ -64,6 +64,18 @@
   const SCRUB_FULLSCREEN_ONLY = false;
   // Сколько секунд даёт свайп на всю ширину видео. / Seconds for a swipe across the full video width.
   const SCRUB_FULL_WIDTH_SEC = 120;
+
+  // --- Кнопка «Открыть в MX Player» / "Open in MX Player" button ---
+  // Касание видео показывает вверху по центру небольшую кнопку «▶ MX»; тап по ней ставит видео
+  // на паузу и открывает его в MX Player с того же места.
+  // Touching a video shows a small "▶ MX" button at the top centre; tapping it pauses the video
+  // and opens it in MX Player at the same position.
+  const MX_ENABLED = true;
+  // Пакет MX Player: com.mxtech.videoplayer.ad — бесплатная, com.mxtech.videoplayer.pro — Pro.
+  // MX Player package: .ad = free edition, .pro = Pro edition.
+  const MX_PACKAGE = 'com.mxtech.videoplayer.ad';
+  // Сколько кнопка видна после касания, мс. / How long the button stays visible after a touch, ms.
+  const MX_BUTTON_MS = 10000;
   // =========================================================
 
   const host = location.hostname;
@@ -533,9 +545,116 @@
     document.addEventListener('fullscreenchange', attachMove);
   }
 
+  // =========================================================
+  // Кнопка «Открыть в MX Player» / "Open in MX Player" button
+  // =========================================================
+  // Видео передаётся в MX Player ссылкой intent:// — Firefox спросит «Открыть в другом приложении?».
+  // Работает для видео с обычной ссылкой на файл или поток. У видео, собранных в браузере из
+  // кусков (адрес вида blob:, например YouTube), ссылки нет — там кнопка не показывается.
+  // MX не получит cookies и заголовки сайта: если сайт их требует, MX покажет ошибку.
+  // The video is handed over with an intent:// link — Firefox asks "Open in another app?".
+  // Works for videos with a plain file or stream URL. Videos assembled in the browser (blob:
+  // URLs, e.g. YouTube) have no such URL, so the button is not shown there. MX does not get
+  // the site's cookies or headers; sites that require them will fail in MX.
+  function setupMxButton() {
+    let btn = null;
+    let current = null; // видео, к которому относится кнопка / the video the button belongs to
+    let hideTimer = 0;
+
+    // Адрес, который можно отдать внешнему плееру, или '' (blob:, data:, пусто).
+    // A URL an external player can open, or '' (blob:, data:, empty).
+    function playableUrl(video) {
+      const src = video.currentSrc || video.src || video.querySelector('source[src]')?.src || '';
+      return /^https?:\/\//i.test(src) ? src : '';
+    }
+
+    function intentUrl(video) {
+      const url = new URL(playableUrl(video));
+      url.hash = ''; // # в адресе сломает intent-ссылку / a # would break the intent link
+      const isHls = /\.m3u8(\?|$)/i.test(url.pathname + url.search);
+      const extras = [
+        'action=android.intent.action.VIEW',
+        `scheme=${url.protocol.slice(0, -1)}`,
+        `type=${isHls ? 'application/x-mpegURL' : 'video/*'}`,
+        `package=${MX_PACKAGE}`,
+        `S.title=${encodeURIComponent(document.title || url.hostname)}`,
+      ];
+      const pos = Math.floor((video.currentTime || 0) * 1000);
+      if (pos > 1000) extras.push(`i.position=${pos}`);
+      return `intent://${url.host}${url.pathname}${url.search}#Intent;${extras.join(';')};end`;
+    }
+
+    function hide() {
+      clearTimeout(hideTimer);
+      if (btn) btn.style.display = 'none';
+      current = null;
+      window.removeEventListener('scroll', hide, true);
+    }
+
+    function ensureButton() {
+      if (btn) return btn;
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '▶ MX';
+      btn.setAttribute('aria-label', RU ? 'Открыть в MX Player' : 'Open in MX Player');
+      btn.style.cssText =
+        'position:fixed;z-index:2147483646;transform:translateX(-50%);display:none;margin:0;' +
+        'height:28px;padding:0 11px;border-radius:14px;border:1px solid rgba(255,255,255,.28);' +
+        'background:rgba(0,0,0,.42);color:rgba(255,255,255,.9);font:600 12px/26px sans-serif;' +
+        'letter-spacing:.3px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+      // Касания кнопки не должны доходить до плеера (в полноэкранном режиме он её предок).
+      // Touches on the button must not reach the player (in fullscreen it is the button's ancestor).
+      for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'dblclick']) {
+        btn.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+      }
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const v = current;
+        if (!v || !playableUrl(v)) { hide(); return; }
+        const link = intentUrl(v);
+        v.pause();
+        hide();
+        const a = document.createElement('a');
+        a.href = link;
+        a.target = '_top';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+      return btn;
+    }
+
+    function show(video, rect) {
+      const b = ensureButton();
+      const parent = document.fullscreenElement || document.body;
+      if (b.parentNode !== parent) parent.appendChild(b);
+      b.style.left = rect.left + rect.width / 2 + 'px';
+      b.style.top = Math.max(rect.top, 0) + 8 + 'px';
+      b.style.display = 'block';
+      current = video;
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hide, MX_BUTTON_MS);
+      // При прокрутке кнопка отстала бы от видео — прячем. / Hide on scroll so it never drifts off the video.
+      window.addEventListener('scroll', hide, { capture: true, passive: true });
+    }
+
+    function onTouchStart(e) {
+      if (e.touches.length !== 1 || (btn && e.target === btn)) return;
+      const t = e.touches[0];
+      const hit = videoAt(t.clientX, t.clientY);
+      if (hit && playableUrl(hit.video)) show(hit.video, hit.rect);
+    }
+
+    window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    document.addEventListener('fullscreenchange', hide);
+  }
+
   // Запуск — в конце, когда все общие помощники уже объявлены.
   // Start at the end, once all shared helpers are declared.
   if (VOLUME_ENABLED) setupVolume();
   if (SEEK_ENABLED && !hostMatches(SEEK_EXCLUDE)) setupSeek();
   if (SWIPE_ENABLED || SCRUB_ENABLED) setupSwipe();
+  if (MX_ENABLED) setupMxButton();
 })();
