@@ -2,9 +2,9 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.1.1
-// @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for brightness and volume.
-// @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, и свайпы яркости и громкости, как в MX Player.
+// @version         2.2.0
+// @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume.
+// @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, и свайпы перемотки, яркости и громкости, как в MX Player.
 // @author          Rolarn
 // @license         MIT
 // @homepageURL     https://github.com/Rolarn/Tamper-scripts/tree/main/scripts/video-player-tweaks

@@ -2,9 +2,9 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.1.1
-// @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for brightness and volume.
-// @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, и свайпы яркости и громкости, как в MX Player.
+// @version         2.2.0
+// @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume.
+// @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, и свайпы перемотки, яркости и громкости, как в MX Player.
 // @author          Rolarn
 // @license         MIT
 // @homepageURL     https://github.com/Rolarn/Tamper-scripts/tree/main/scripts/video-player-tweaks
@@ -54,6 +54,16 @@
   // Пределы яркости: 0.1 = 10%, 1.5 = 150%. / Brightness limits.
   const BRIGHTNESS_MIN = 0.1;
   const BRIGHTNESS_MAX = 1.5;
+
+  // --- Перемотка горизонтальным свайпом / Horizontal swipe seek ---
+  // Свайп влево-вправо по видео — перемотка, как в MX Player: попасть по тонкой полосе
+  // прокрутки плеера не нужно. Работает и в обычном, и в полноэкранном режиме.
+  // Swipe left/right over the video to seek, like MX Player — no need to hit the player's thin
+  // progress bar. Works both inline and in fullscreen.
+  const SCRUB_ENABLED = true;
+  const SCRUB_FULLSCREEN_ONLY = false;
+  // Сколько секунд даёт свайп на всю ширину видео. / Seconds for a swipe across the full video width.
+  const SCRUB_FULL_WIDTH_SEC = 120;
   // =========================================================
 
   const host = location.hostname;
@@ -226,7 +236,7 @@
       e.stopImmediatePropagation();
     }
   }
-  if (SEEK_ENABLED || SWIPE_ENABLED) {
+  if (SEEK_ENABLED || SWIPE_ENABLED || SCRUB_ENABLED) {
     for (const type of ['click', 'dblclick']) window.addEventListener(type, onClickLike, true);
   }
 
@@ -383,16 +393,19 @@
   }
 
   // =========================================================
-  // Свайпы яркости и громкости / Brightness and volume swipes
+  // Свайпы: перемотка, яркость, громкость / Swipes: seek, brightness, volume
   // =========================================================
-  // Веб-страница не может менять яркость экрана и системную громкость. Поэтому яркость —
-  // это фильтр на самом видео (затемнение и осветление до 150%), а громкость — громкость
-  // плеера от 0 до 100% от текущей системной.
+  // Горизонтальный свайп — перемотка. Вертикальный: левая половина — яркость, правая — громкость.
+  // Веб-страница не может менять яркость экрана и системную громкость. Поэтому яркость — это
+  // фильтр на самом видео (затемнение и осветление до 150%), а громкость — громкость плеера
+  // от 0 до 100% от текущей системной.
+  // Horizontal swipe = seek. Vertical: left half = brightness, right half = volume.
   // A web page cannot change screen brightness or system volume. So brightness is a filter on
   // the video itself (dimming and brightening up to 150%), and volume is the player volume,
   // 0–100% of the current system volume.
   function setupSwipe() {
     const DECIDE_MOVE = 12; // px, после этого решаем, наш ли это жест / px before deciding
+    const AXIS_RATIO = 1.5; // насколько одна ось должна преобладать / how much one axis must dominate
     const HUD_MS = 900;
 
     let cand = null; // касание, которое может стать свайпом / touch that may become a swipe
@@ -402,6 +415,18 @@
 
     const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
     const pct = (v) => Math.round(v * 100) + '%';
+    const fs = () => !!document.fullscreenElement;
+    const verticalAllowed = () => SWIPE_ENABLED && (!SWIPE_FULLSCREEN_ONLY || fs());
+    const scrubAllowed = () => SCRUB_ENABLED && (!SCRUB_FULLSCREEN_ONLY || fs());
+
+    // 1:05 или 1:02:05 / 1:05 or 1:02:05
+    function clock(sec) {
+      const t = Math.max(0, Math.round(sec));
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      const ss = String(t % 60).padStart(2, '0');
+      return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+    }
 
     function applyBrightness(video, b) {
       if (!baseFilter.has(video)) baseFilter.set(video, video.style.filter || '');
@@ -418,7 +443,9 @@
 
     function onStart(e) {
       active = null;
-      const hit = gestureTarget(e, SWIPE_FULLSCREEN_ONLY);
+      cand = null;
+      if (!verticalAllowed() && !scrubAllowed()) return;
+      const hit = gestureTarget(e, false);
       cand = hit && { ...hit, left: hit.x < hit.rect.left + hit.rect.width / 2 };
     }
 
@@ -427,31 +454,51 @@
       const t = e.touches[0];
       const dx = t.clientX - cand.x;
       const dy = t.clientY - cand.y;
+      const v = cand.video;
       if (!active) {
         if (Math.hypot(dx, dy) < DECIDE_MOVE) return;
-        // Горизонтальный или косой жест — не наш (перемотка свайпом у плеера, прокрутка и т. п.).
-        // Horizontal or diagonal — not ours (player's swipe-seek, scrolling and so on).
-        if (Math.abs(dy) < Math.abs(dx) * 1.5) { cand = null; return; }
-        const v = cand.video;
-        active = cand.left
-          ? { kind: 'bright', from: brightness }
-          : { kind: 'vol', from: v.muted ? 0 : v.volume };
+        const vertical = Math.abs(dy) >= Math.abs(dx) * AXIS_RATIO;
+        const horizontal = Math.abs(dx) >= Math.abs(dy) * AXIS_RATIO;
+        if (horizontal && scrubAllowed() && Number.isFinite(v.duration)) {
+          active = { kind: 'scrub', from: v.currentTime, to: v.currentTime };
+        } else if (vertical && verticalAllowed()) {
+          active = cand.left ? { kind: 'bright', from: brightness } : { kind: 'vol', from: v.muted ? 0 : v.volume };
+        } else {
+          // Косой жест или выключенный режим — не наш (прокрутка, жесты плеера).
+          // Diagonal or disabled — not ours (scrolling, the player's own gestures).
+          cand = null;
+          return;
+        }
       }
-      if (e.cancelable) e.preventDefault(); // не прокручивать и не обновлять страницу / no scroll, no pull-to-refresh
+      // Не прокручивать и не обновлять страницу (если событие можно отменить).
+      // No scrolling or pull-to-refresh (when the event is cancelable).
+      if (e.cancelable) e.preventDefault();
+
+      if (active.kind === 'scrub') {
+        // Во время свайпа только показываем, куда перемотаем, а перематываем при отпускании:
+        // одна загрузка вместо десятков — быстрее и бережнее к сети и батарее.
+        // While swiping only show the target; seek on release — one load instead of dozens.
+        const delta = (dx / cand.rect.width) * SCRUB_FULL_WIDTH_SEC;
+        active.to = clamp(active.from + delta, 0, Math.max(v.duration - 0.5, 0));
+        const diff = active.to - active.from;
+        showHud(cand.rect, 0.5, `${diff < 0 ? '−' : '+'}${clock(Math.abs(diff))} · ${clock(active.to)} / ${clock(v.duration)}`, HUD_MS);
+        return;
+      }
       const delta = -dy / (cand.rect.height * SWIPE_SENSITIVITY);
       if (active.kind === 'bright') {
         brightness = clamp(active.from + delta, BRIGHTNESS_MIN, BRIGHTNESS_MAX);
-        applyBrightness(cand.video, brightness);
+        applyBrightness(v, brightness);
         showHud(cand.rect, 0.25, (RU ? '☀ Яркость ' : '☀ Brightness ') + pct(brightness), HUD_MS);
       } else {
         const vol = clamp(active.from + delta, 0, 1);
-        setVolume(cand.video, vol);
+        setVolume(v, vol);
         showHud(cand.rect, 0.75, (vol ? '🔊 ' : '🔇 ') + (RU ? 'Громкость ' : 'Volume ') + pct(vol), HUD_MS);
       }
     }
 
     function onEnd(e) {
       if (active && cand) {
+        if (active.kind === 'scrub' && Math.abs(active.to - active.from) >= 0.5) cand.video.currentTime = active.to;
         // Свайп закончился — плеер не должен получить его как тап. / Do not let the player see the swipe as a tap.
         if (e.cancelable) e.preventDefault();
         blockClicks(e.timeStamp, cand.rect, 400);
@@ -463,24 +510,32 @@
     window.addEventListener('touchend', onEnd, { capture: true, passive: false });
     window.addEventListener('touchcancel', () => { cand = null; active = null; }, { capture: true, passive: true });
 
-    // Непассивный touchmove замедляет прокрутку, поэтому в режиме «только полный экран» он
-    // подключается лишь на время полноэкранного режима.
-    // A non-passive touchmove slows scrolling, so in fullscreen-only mode it is attached only
-    // while fullscreen is on.
-    const moveOpts = { capture: true, passive: false };
-    if (!SWIPE_FULLSCREEN_ONLY) {
-      window.addEventListener('touchmove', onMove, moveOpts);
-    } else {
-      document.addEventListener('fullscreenchange', () => {
-        if (document.fullscreenElement) window.addEventListener('touchmove', onMove, moveOpts);
-        else window.removeEventListener('touchmove', onMove, moveOpts);
-      });
+    // touchmove: непассивный нужен, чтобы погасить прокрутку, но он замедляет прокрутку страницы.
+    // Поэтому непассивный — только когда жесты могут быть вертикальными (полный экран или
+    // SWIPE_FULLSCREEN_ONLY = false); для одной горизонтальной перемотки хватает пассивного:
+    // горизонтальный свайп страницу не прокручивает.
+    // touchmove: a non-passive listener can stop scrolling but slows page scrolling. So it is
+    // non-passive only when vertical gestures are possible; horizontal seek alone works with a
+    // passive one, since a horizontal swipe does not scroll the page.
+    const ACTIVE = { capture: true, passive: false };
+    const PASSIVE = { capture: true, passive: true };
+    let mode = null;
+    function attachMove() {
+      const want = verticalAllowed() ? 'active' : scrubAllowed() ? 'passive' : 'none';
+      if (want === mode) return;
+      if (mode === 'active') window.removeEventListener('touchmove', onMove, ACTIVE);
+      if (mode === 'passive') window.removeEventListener('touchmove', onMove, PASSIVE);
+      if (want === 'active') window.addEventListener('touchmove', onMove, ACTIVE);
+      if (want === 'passive') window.addEventListener('touchmove', onMove, PASSIVE);
+      mode = want;
     }
+    attachMove();
+    document.addEventListener('fullscreenchange', attachMove);
   }
 
   // Запуск — в конце, когда все общие помощники уже объявлены.
   // Start at the end, once all shared helpers are declared.
   if (VOLUME_ENABLED) setupVolume();
   if (SEEK_ENABLED && !hostMatches(SEEK_EXCLUDE)) setupSeek();
-  if (SWIPE_ENABLED) setupSwipe();
+  if (SWIPE_ENABLED || SCRUB_ENABLED) setupSwipe();
 })();

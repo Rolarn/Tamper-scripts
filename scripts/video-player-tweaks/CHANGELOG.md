@@ -3,6 +3,19 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.2.0] — 2026-11-24
+
+### Добавлено / Added
+- Перемотка горизонтальным свайпом по видео, как в MX Player, в обычном и полноэкранном режиме: не нужно целиться в тонкую полосу прокрутки. Свайп на всю ширину — 2 минуты; во время свайпа видно целевое время, перемотка — при отпускании пальца.
+  MX Player-style horizontal swipe seek, inline and in fullscreen — no need to hit the thin progress bar. Full width = 2 min; the target time is shown while swiping, the seek happens on release.
+- Настройки `SCRUB_ENABLED`, `SCRUB_FULLSCREEN_ONLY`, `SCRUB_FULL_WIDTH_SEC`.
+- В README — совет, как увеличить буфер видео в `about:config` Firefox.
+  README tip on raising Firefox's video buffer via `about:config`.
+
+### Изменено / Changed
+- Вне полноэкранного режима слушатель `touchmove` пассивный: перемотка свайпом не замедляет прокрутку страницы.
+  Outside fullscreen the `touchmove` listener is passive, so swipe seek does not slow page scrolling.
+
 ## [2.1.1] — 2026-11-22
 
 ### Исправлено / Fixed
