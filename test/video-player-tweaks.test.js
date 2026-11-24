@@ -237,26 +237,66 @@ test('Левая половина: яркость через фильтр, 100% 
   assert.match(v.style.filter, /^brightness\(1\.50?\)$/);
 });
 
-test('Горизонтальный свайп и выход из полного экрана не перехватываем / horizontal swipe and exit are ignored', () => {
-  const { w, v, swipe, enterFullscreen, exitFullscreen } = swipePage();
+test('Выход из полного экрана выключает вертикальные свайпы / leaving fullscreen disables vertical swipes', () => {
+  const { v, swipe, enterFullscreen, exitFullscreen } = swipePage();
   enterFullscreen();
+  exitFullscreen();
   v.volume = 1;
-  const touch = (type, x, y) => {
+  assert.equal(swipe(350, 50, 130).defaultPrevented, false);
+  assert.equal(v.volume, 1);
+});
+
+// ---------- Перемотка горизонтальным свайпом (2.2.0) / Horizontal swipe seek (2.2.0) ----------
+
+function hswipe(p, x0, x1, y = 100, dy = 0) {
+  const { w, v } = p;
+  const touch = (type, x, yy) => {
     const e = new w.Event(type, { bubbles: true, cancelable: true });
-    const list = [{ clientX: x, clientY: y }];
+    const list = [{ clientX: x, clientY: yy }];
     Object.defineProperty(e, 'touches', { value: type === 'touchend' ? [] : list });
     Object.defineProperty(e, 'changedTouches', { value: list });
     v.dispatchEvent(e);
     return e;
   };
-  touch('touchstart', 300, 100);
-  const m = touch('touchmove', 380, 105);
-  touch('touchend', 380, 105);
-  assert.equal(m.defaultPrevented, false);
-  assert.equal(v.volume, 1);
-  exitFullscreen();
-  assert.equal(swipe(350, 50, 130).defaultPrevented, false);
-  assert.equal(v.volume, 1);
+  touch('touchstart', x0, y);
+  const steps = 8;
+  const timeDuring = [];
+  for (let i = 1; i <= steps; i++) {
+    touch('touchmove', x0 + ((x1 - x0) * i) / steps, y + (dy * i) / steps);
+    timeDuring.push(v.currentTime);
+  }
+  touch('touchend', x1, y + dy);
+  return { timeDuring };
+}
+
+test('Обычный режим: свайп вправо перематывает при отпускании / inline: swipe right seeks on release', () => {
+  const p = swipePage();
+  const { timeDuring } = hswipe(p, 100, 300); // 200 px из 400 → половина от 120 с = +60 с
+  assert.ok(timeDuring.every((t) => t === 50), 'во время свайпа видео не дёргаем / no seeking while swiping');
+  assert.equal(p.v.currentTime, 99.5, 'упор в конец видео / clamped to the end');
+});
+
+test('Полный экран: свайп влево назад, подсказка с временем / fullscreen: swipe left back, time hint', () => {
+  const p = swipePage();
+  p.enterFullscreen();
+  hswipe(p, 300, 200); // −100 px → −30 с
+  assert.equal(p.v.currentTime, 20);
+  const hud = [...p.w.document.body.children].find((el) => el.style.position === 'fixed');
+  assert.match(hud.textContent, /^−0:30 · 0:20 \/ 1:40$/);
+});
+
+test('Косой свайп и маленькое движение не перематывают / diagonal swipe and tiny moves do not seek', () => {
+  const p = swipePage();
+  hswipe(p, 100, 180, 100, 60); // по диагонали / diagonal
+  assert.equal(p.v.currentTime, 50);
+  hswipe(p, 200, 205); // меньше порога / below the threshold
+  assert.equal(p.v.currentTime, 50);
+});
+
+test('Свайп по панели плеера оставляем плееру / swipes on the control bar stay with the player', () => {
+  const p = swipePage();
+  hswipe(p, 100, 300, 190);
+  assert.equal(p.v.currentTime, 50);
 });
 
 // ---------- Двойной тап не ставит на паузу (2.1.1) / Double tap does not pause (2.1.1) ----------
