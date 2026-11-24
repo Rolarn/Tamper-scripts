@@ -43,8 +43,12 @@
 - Firefox спросит «Открыть в другом приложении?» — подтвердите. Чтобы не спрашивал, в настройках Firefox выберите *Открывать ссылки в приложениях → Всегда*.
 - По умолчанию открывается бесплатная версия (`com.mxtech.videoplayer.ad`); для Pro поменяйте `MX_PACKAGE`.
 
+Если сайт собирает видео в браузере из кусков (адрес `blob:`), скрипт ищет замену:
+1. ссылку на скачивание на странице с указанием качества (`…-720p.mp4`, `/dload/…`) — берётся самое высокое качество, но не выше `MX_MAX_HEIGHT` (1080p);
+2. адрес потока `.m3u8` среди файлов, которые загрузила страница.
+
 Когда кнопки нет или MX не откроет видео:
-- у видео нет обычной ссылки — сайт собирает его в браузере из кусков (адрес `blob:`, например YouTube); кнопка тогда не показывается;
+- замены не нашлось (например, YouTube) — кнопка не показывается;
 - сайт отдаёт видео только со своими cookies или заголовками — MX их не получит и покажет ошибку.
 
 ## Яркость и громкость свайпами
@@ -92,6 +96,7 @@
 | `MX_ENABLED` | `true` | Кнопка «▶ MX» |
 | `MX_PACKAGE` | `com.mxtech.videoplayer.ad` | Какой MX Player открывать (`.pro` — Pro) |
 | `MX_BUTTON_MS` | `10000` | Сколько кнопка видна после касания, мс |
+| `MX_MAX_HEIGHT` | `1080` | Предел качества ссылки на скачивание для видео `blob:` |
 
 > Настройки внутри файла перезапишутся при обновлении скрипта.
 
@@ -119,7 +124,7 @@
 
 - **Double-tap seek**, YouTube-style: double-tap the right third of any HTML5 video to skip 10 s forward, the left third to go back; every further tap adds 10 s. Centre, top strip and bottom control bar are left to the player. Disabled on YouTube, which has its own.
 - **Swipe seek**, MX Player-style, inline and in fullscreen: swipe left/right over the video to seek (full width = 2 min); the seek happens on release.
-- **Open in MX Player**: touch a video to show a small "▶ MX" button for 10 s; it pauses the video and opens it in MX Player at the same position (plain file/stream URLs only, no `blob:`).
+- **Open in MX Player**: touch a video to show a small "▶ MX" button for 10 s; it pauses the video and opens it in MX Player at the same position (for `blob:` videos it falls back to a download link on the page or a loaded `.m3u8` stream).
 - **Brightness/volume swipes**, MX Player-style, in fullscreen: left half = brightness (a filter on the video, 10–150%), right half = player volume (0–100% of the system volume). Web pages cannot change screen brightness or system volume.
 - **Volume 100%**: raises the stored volume of KVS (`kt_player`) players and turns any non-zero volume of other players into 100%. Muting still works.
 

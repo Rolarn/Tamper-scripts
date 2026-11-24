@@ -433,3 +433,52 @@ test('MX: тап по кнопке не перематывает и не ста�
   assert.equal(p.player.clicks, 0);
   assert.equal(p.v.currentTime, 50);
 });
+
+// ---------- MX для видео blob: (2.4.0) / MX for blob: videos (2.4.0) ----------
+
+function addLinks(w, list) {
+  for (const [href, text] of list) {
+    const a = w.document.createElement('a');
+    a.href = href;
+    a.textContent = text;
+    w.document.body.appendChild(a);
+  }
+}
+
+test('MX + blob: берётся лучшая ссылка на скачивание не выше 1080p / best download link up to 1080p', () => {
+  const p = mxPage('blob:https://videos.example/123');
+  addLinks(p.w, [
+    ['https://videos.example/dload/abc/240/111-240p.mp4', 'Download MP4 (240p)'],
+    ['https://videos.example/dload/abc/720/111-720p.mp4', 'Download MP4 (720p HD)'],
+    ['https://videos.example/dload/abc/1080/111-1080p.mp4', 'Download MP4 (1080p HD)'],
+    ['https://videos.example/dload/abc/2160/111-2160p.mp4', 'Download MP4 (4K)'],
+    ['https://videos.example/other.mp4', 'Другое видео без качества'],
+  ]);
+  p.touchVideo();
+  p.mxButton().click();
+  assert.ok(p.links[0].href.startsWith('intent://videos.example/dload/abc/1080/111-1080p.mp4#Intent;'), p.links[0].href);
+  assert.ok(p.links[0].href.includes(';type=video/*;'));
+});
+
+test('MX + blob: предел качества настраивается / quality cap is configurable', () => {
+  const p = mxPage('blob:https://videos.example/123', SRC.replace('const MX_MAX_HEIGHT = 1080;', 'const MX_MAX_HEIGHT = 720;'));
+  addLinks(p.w, [
+    ['https://videos.example/dload/abc/720/111-720p.mp4', '720p'],
+    ['https://videos.example/dload/abc/1080/111-1080p.mp4', '1080p'],
+  ]);
+  p.touchVideo();
+  p.mxButton().click();
+  assert.ok(p.links[0].href.includes('/dload/abc/720/111-720p.mp4#Intent;'));
+});
+
+test('MX + blob: без ссылок берётся загруженный поток .m3u8 / falls back to a loaded .m3u8', () => {
+  const p = mxPage('blob:https://videos.example/123');
+  p.w.performance.getEntriesByType = (type) => (type === 'resource'
+    ? [{ name: 'https://cdn.example/js/app.js' }, { name: 'https://cdn.example/hls/abc/master.m3u8?t=1' },
+      { name: 'https://cdn.example/hls/abc/720/index.m3u8' }]
+    : []);
+  p.touchVideo();
+  p.mxButton().click();
+  assert.ok(p.links[0].href.startsWith('intent://cdn.example/hls/abc/master.m3u8?t=1#Intent;'), p.links[0].href);
+  assert.ok(p.links[0].href.includes(';type=application/x-mpegURL;'));
+});
