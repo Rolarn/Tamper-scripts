@@ -2,7 +2,7 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.3.0
+// @version         2.4.0
 // @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume, plus a button to open the video in MX Player.
 // @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, свайпы перемотки, яркости и громкости, как в MX Player, и кнопку «открыть в MX Player».
 // @author          Rolarn
@@ -76,6 +76,10 @@
   const MX_PACKAGE = 'com.mxtech.videoplayer.ad';
   // Сколько кнопка видна после касания, мс. / How long the button stays visible after a touch, ms.
   const MX_BUTTON_MS = 10000;
+  // Если сайт собирает видео из кусков (адрес blob:), скрипт ищет ссылку на скачивание на странице
+  // и берёт самое высокое качество, но не выше этого. / For blob: videos the script looks for download
+  // links on the page and takes the highest quality up to this height.
+  const MX_MAX_HEIGHT = 1080;
   // =========================================================
 
   const host = location.hostname;
@@ -549,23 +553,54 @@
   // Кнопка «Открыть в MX Player» / "Open in MX Player" button
   // =========================================================
   // Видео передаётся в MX Player ссылкой intent:// — Firefox спросит «Открыть в другом приложении?».
-  // Работает для видео с обычной ссылкой на файл или поток. У видео, собранных в браузере из
-  // кусков (адрес вида blob:, например YouTube), ссылки нет — там кнопка не показывается.
+  // Нужна обычная ссылка на файл или поток. Если сайт собирает видео в браузере из кусков
+  // (адрес вида blob:), скрипт ищет замену: ссылку на скачивание на странице или адрес потока
+  // .m3u8 среди загруженных страницей файлов. Не нашлось — кнопка не показывается.
   // MX не получит cookies и заголовки сайта: если сайт их требует, MX покажет ошибку.
   // The video is handed over with an intent:// link — Firefox asks "Open in another app?".
-  // Works for videos with a plain file or stream URL. Videos assembled in the browser (blob:
-  // URLs, e.g. YouTube) have no such URL, so the button is not shown there. MX does not get
-  // the site's cookies or headers; sites that require them will fail in MX.
+  // A plain file or stream URL is needed. For videos assembled in the browser (blob: URLs) the
+  // script looks for a substitute: a download link on the page or an .m3u8 stream among the
+  // page's loaded resources. If none is found, the button is not shown. MX does not get the
+  // site's cookies or headers; sites that require them will fail in MX.
   function setupMxButton() {
     let btn = null;
     let current = null; // видео, к которому относится кнопка / the video the button belongs to
     let hideTimer = 0;
 
-    // Адрес, который можно отдать внешнему плееру, или '' (blob:, data:, пусто).
-    // A URL an external player can open, or '' (blob:, data:, empty).
+    const isHttp = (u) => /^https?:\/\//i.test(u || '');
+
+    // Ссылки на скачивание с указанием качества: «…-720p.mp4», «/dload/…/720/…», текст «720p».
+    // Без явного качества ссылку не берём — так не попадутся чужие ролики и превью.
+    // Download links that state a quality ("…-720p.mp4", "/dload/…/720/…", "720p" text). Links
+    // without a stated quality are skipped so other clips and previews are not picked up.
+    function bestDownloadLink() {
+      let best = '';
+      let bestH = 0;
+      for (const a of document.querySelectorAll('a[href]')) {
+        const href = a.href;
+        if (!isHttp(href) || !/\.(mp4|webm|mkv|mov)(\?|$)|\/dload\//i.test(href)) continue;
+        const m = (href + ' ' + a.textContent).match(/(?:^|\D)(\d{3,4})p(?:\D|$)/i);
+        const h = m ? Number(m[1]) : 0;
+        if (h && h <= MX_MAX_HEIGHT && h > bestH) { best = href; bestH = h; }
+      }
+      return best;
+    }
+
+    // Первый адрес потока .m3u8, который загрузила страница (обычно это главный список качеств).
+    // The first .m3u8 stream the page loaded (usually the master playlist).
+    function loadedHlsUrl() {
+      try {
+        const entry = performance.getEntriesByType('resource').find((e) => /\.m3u8(\?|$)/i.test(e.name));
+        return entry && isHttp(entry.name) ? entry.name : '';
+      } catch { return ''; }
+    }
+
+    // Адрес, который можно отдать внешнему плееру, или ''. / A URL an external player can open, or ''.
     function playableUrl(video) {
       const src = video.currentSrc || video.src || video.querySelector('source[src]')?.src || '';
-      return /^https?:\/\//i.test(src) ? src : '';
+      if (isHttp(src)) return src;
+      if (!/^blob:/i.test(src)) return '';
+      return bestDownloadLink() || loadedHlsUrl();
     }
 
     function intentUrl(video) {

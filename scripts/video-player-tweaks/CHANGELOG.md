@@ -3,6 +3,13 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.4.0] — 2026-11-25
+
+### Добавлено / Added
+- Кнопка «▶ MX» для видео, которые сайт собирает в браузере из кусков (адрес `blob:`): скрипт ищет на странице ссылку на скачивание с указанием качества и берёт лучшую не выше `MX_MAX_HEIGHT` (1080p), а если её нет — адрес потока `.m3u8` среди загруженных страницей файлов. Пример — eporner.
+  "▶ MX" for `blob:` videos: falls back to the best download link on the page up to `MX_MAX_HEIGHT` (1080p), then to a loaded `.m3u8` stream.
+- Настройка `MX_MAX_HEIGHT`.
+
 ## [2.3.0] — 2026-11-24
 
 ### Добавлено / Added
