@@ -2,7 +2,7 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.4.0
+// @version         2.5.0
 // @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume, plus a button to open the video in MX Player.
 // @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, свайпы перемотки, яркости и громкости, как в MX Player, и кнопку «открыть в MX Player».
 // @author          Rolarn
@@ -80,6 +80,16 @@
   // и берёт самое высокое качество, но не выше этого. / For blob: videos the script looks for download
   // links on the page and takes the highest quality up to this height.
   const MX_MAX_HEIGHT = 1080;
+
+  // --- Без автозапуска и со звуком / No autoplay, sound on ---
+  // На этих сайтах видео не запускаются сами (только по вашему тапу) и не стоят без звука.
+  // Часть адреса сайта: 'reactor.cc' подходит и для поддоменов вроде anime.reactor.cc.
+  // On these sites videos never start by themselves (only on your tap) and are not muted.
+  // Part of the host name: 'reactor.cc' also covers subdomains like anime.reactor.cc.
+  const CLICK_TO_PLAY_SITES = ['reactor.cc', 'joyreactor.cc', 'joyreactor.com'];
+  // Сколько мс после вашего тапа или клика запуск видео считается вашим.
+  // How many ms after your tap or click a start of playback counts as yours.
+  const GESTURE_WINDOW_MS = 1000;
   // =========================================================
 
   const host = location.hostname;
@@ -686,10 +696,85 @@
     document.addEventListener('fullscreenchange', hide);
   }
 
+  // =========================================================
+  // Без автозапуска и со звуком / No autoplay, sound on
+  // =========================================================
+  // Атрибут autoplay снимается мало где: многие сайты (и reactor) запускают видео из скрипта,
+  // когда оно появляется на экране. Поэтому, как в проверенных скриптах «click-to-play»,
+  // любой запуск, который не последовал сразу за вашим тапом, клавишей или кликом, тут же
+  // ставится на паузу. Прокрутка жестом не считается: после неё браузер не шлёт click/pointerup.
+  // Removing the autoplay attribute is rarely enough: many sites (reactor included) start videos
+  // from script when they scroll into view. So, like proven click-to-play scripts, any start that
+  // does not follow your tap, key press or click right away is paused at once. A scroll gesture
+  // does not count: the browser sends no click/pointerup after it.
+  function setupClickToPlay() {
+    const MAX_UNMUTE_FIXES = 10;
+    let lastGesture = -Infinity;
+    const prepared = new WeakSet();
+    const unmuteFixes = new WeakMap();
+
+    const markGesture = (e) => { if (e.isTrusted) lastGesture = performance.now(); };
+    const userActive = () => performance.now() - lastGesture < GESTURE_WINDOW_MS;
+    for (const type of ['click', 'pointerup', 'keydown']) {
+      window.addEventListener(type, markGesture, { capture: true, passive: true });
+    }
+    // Некоторые плееры запускаются уже по нажатию пальца — его считаем, только если палец на видео
+    // (нажатие в начале прокрутки страницы не должно разрешать автозапуск).
+    // Some players start on pointerdown already — it counts only when the finger is on a video
+    // (a press that starts a page scroll must not allow autoplay).
+    window.addEventListener('pointerdown', (e) => {
+      if (e.isTrusted && videoAt(e.clientX, e.clientY)) lastGesture = performance.now();
+    }, { capture: true, passive: true });
+
+    // Новое видео: без autoplay, без muted, загружаем только начало (экономия трафика).
+    // New video: no autoplay, not muted, preload metadata only (saves data).
+    function prepare(el) {
+      if (prepared.has(el)) return;
+      prepared.add(el);
+      el.autoplay = false;
+      el.removeAttribute('autoplay');
+      el.defaultMuted = false; // снимает атрибут muted / clears the muted attribute
+      el.muted = false;
+      if (el.preload !== 'none') el.preload = 'metadata';
+      if (!el.paused && !userActive()) el.pause();
+    }
+
+    function scanNode(n) {
+      if (n.nodeType !== 1) return;
+      if (n.nodeName === 'VIDEO' || n.nodeName === 'AUDIO') prepare(n);
+      else if (n.firstElementChild) for (const m of n.querySelectorAll('video, audio')) prepare(m);
+    }
+
+    new MutationObserver((records) => {
+      for (const r of records) for (const n of r.addedNodes) scanNode(n);
+    }).observe(document, { childList: true, subtree: true });
+    scanNode(document.documentElement);
+
+    // Запуск не по вашему действию — сразу пауза. / A start you did not trigger is paused at once.
+    document.addEventListener('play', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLMediaElement)) return;
+      prepare(el);
+      if (!userActive()) el.pause();
+    }, true);
+
+    // Сайт снова выключил звук сам — включаем обратно (ваше выключение кнопкой не трогаем).
+    // The site muted again on its own — unmute (a mute you did yourself is kept).
+    document.addEventListener('volumechange', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLMediaElement) || !el.muted || userActive()) return;
+      const n = (unmuteFixes.get(el) || 0) + 1;
+      if (n > MAX_UNMUTE_FIXES) return;
+      unmuteFixes.set(el, n);
+      el.muted = false;
+    }, true);
+  }
+
   // Запуск — в конце, когда все общие помощники уже объявлены.
   // Start at the end, once all shared helpers are declared.
   if (VOLUME_ENABLED) setupVolume();
   if (SEEK_ENABLED && !hostMatches(SEEK_EXCLUDE)) setupSeek();
   if (SWIPE_ENABLED || SCRUB_ENABLED) setupSwipe();
   if (MX_ENABLED) setupMxButton();
+  if (hostMatches(CLICK_TO_PLAY_SITES)) setupClickToPlay();
 })();

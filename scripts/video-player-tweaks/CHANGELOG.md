@@ -3,6 +3,13 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.5.0] — 2026-11-26
+
+### Добавлено / Added
+- Без автозапуска и со звуком на сайтах из `CLICK_TO_PLAY_SITES` (reactor.cc, joyreactor): атрибуты `autoplay` и `muted` снимаются, любой запуск не сразу после тапа, клика или клавиши ставится на паузу (как в проверенных скриптах click-to-play), выключение звука сайтом отменяется, загружается только начало видео. Нажатие пальца считается действием пользователя только на видео, чтобы прокрутка не разрешала автозапуск.
+  No autoplay and sound on for `CLICK_TO_PLAY_SITES` (reactor.cc, joyreactor): `autoplay`/`muted` removed, any start not right after a tap/click/key is paused, site-initiated muting undone, preload limited to metadata.
+- Настройки `CLICK_TO_PLAY_SITES`, `GESTURE_WINDOW_MS`.
+
 ## [2.4.0] — 2026-11-25
 
 ### Добавлено / Added
