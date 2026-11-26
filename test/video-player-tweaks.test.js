@@ -482,3 +482,88 @@ test('MX + blob: без ссылок берётся загруженный по�
   assert.ok(p.links[0].href.startsWith('intent://cdn.example/hls/abc/master.m3u8?t=1#Intent;'), p.links[0].href);
   assert.ok(p.links[0].href.includes(';type=application/x-mpegURL;'));
 });
+
+// ---------- Без автозапуска и со звуком (2.5.0) / No autoplay, sound on (2.5.0) ----------
+
+// jsdom не умеет создавать «настоящие» события пользователя — в тестах проверку isTrusted снимаем.
+// jsdom cannot create trusted user events, so the isTrusted check is lifted for these tests.
+const TRUSTING_SRC = SRC.replaceAll('e.isTrusted', 'true');
+
+function reactorPage(url = 'https://reactor.cc/post/6416883') {
+  const p = seekPage(url, TRUSTING_SRC);
+  const { w } = p;
+  p.gesture = (type, x = 200, y = 100) => {
+    const e = new w.Event(type, { bubbles: true, cancelable: true });
+    Object.assign(e, { clientX: x, clientY: y });
+    w.document.body.dispatchEvent(e);
+  };
+  p.newVideo = () => {
+    const box = w.document.createElement('div');
+    box.innerHTML = '<video autoplay muted loop src="https://img1.reactor.cc/pics/post/webm/x.webm"></video>';
+    w.document.body.appendChild(box);
+    return box.firstElementChild;
+  };
+  return p;
+}
+
+test('Reactor: новое видео без autoplay и со звуком / new video: no autoplay, unmuted', async () => {
+  const p = reactorPage();
+  const nv = p.newVideo();
+  await sleep(10);
+  assert.equal(nv.autoplay, false);
+  assert.equal(nv.hasAttribute('autoplay'), false);
+  assert.equal(nv.muted, false);
+  assert.equal(nv.hasAttribute('muted'), false);
+  assert.equal(nv.preload, 'metadata');
+});
+
+test('Reactor: запуск скриптом сайта ставится на паузу / site-initiated start is paused', async () => {
+  const p = reactorPage();
+  p.v.pause();
+  await sleep(1100); // нет недавних действий пользователя / no recent user action
+  p.v.play();
+  assert.equal(p.isPaused(), true);
+});
+
+test('Reactor: запуск по тапу пользователя работает / start on user tap works', () => {
+  const p = reactorPage();
+  p.v.pause();
+  p.gesture('click');
+  p.v.play();
+  assert.equal(p.isPaused(), false);
+});
+
+test('Reactor: нажатие пальца на видео разрешает, вне видео — нет / pointerdown counts only on a video', async () => {
+  const p = reactorPage();
+  p.v.pause();
+  await sleep(1100);
+  p.gesture('pointerdown', 500, 500); // вне видео (начало прокрутки) / outside the video (scroll start)
+  p.v.play();
+  assert.equal(p.isPaused(), true);
+  p.gesture('pointerdown', 200, 100); // на видео / on the video
+  p.v.play();
+  assert.equal(p.isPaused(), false);
+});
+
+test('Reactor: сайт снова выключил звук — включаем; выключение пользователем оставляем / site mute undone, user mute kept', async () => {
+  const p = reactorPage();
+  await sleep(1100);
+  const mute = () => { p.v.muted = true; p.v.dispatchEvent(new p.w.Event('volumechange')); };
+  mute(); // сайт / the site
+  assert.equal(p.v.muted, false);
+  p.gesture('click');
+  mute(); // пользователь кнопкой / the user via a button
+  assert.equal(p.v.muted, true);
+});
+
+test('Другие сайты не затрагиваются / other sites are not affected', async () => {
+  const p = reactorPage('https://videos.example/v/1');
+  const nv = p.newVideo();
+  await sleep(10);
+  assert.equal(nv.hasAttribute('autoplay'), true);
+  assert.equal(nv.hasAttribute('muted'), true);
+  p.v.pause();
+  await sleep(1100);
+  p.v.play();
+  assert.equal(p.isPaused(), false);
+});
