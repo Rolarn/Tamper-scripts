@@ -2,7 +2,7 @@
 // @name            Video players: volume 100% & double-tap seek
 // @name:ru         Видеоплееры: громкость 100% и перемотка двойным тапом
 // @namespace       https://github.com/Rolarn/Tamper-scripts
-// @version         2.5.0
+// @version         2.6.0
 // @description     Stops websites from lowering video/audio volume and adds touch gestures to any HTML5 video: YouTube-style double-tap seek and MX Player-style swipes for seeking, brightness and volume, plus a button to open the video in MX Player.
 // @description:ru  Не даёт сайтам занижать громкость и добавляет любому HTML5-видео жесты: перемотку двойным тапом, как в YouTube, свайпы перемотки, яркости и громкости, как в MX Player, и кнопку «открыть в MX Player».
 // @author          Rolarn
@@ -90,6 +90,8 @@
   // Сколько мс после вашего тапа или клика запуск видео считается вашим.
   // How many ms after your tap or click a start of playback counts as yours.
   const GESTURE_WINDOW_MS = 1000;
+  // Большая кнопка ▶ по центру остановленного видео на этих сайтах. / Big ▶ button over paused videos there.
+  const BIG_PLAY_BUTTON = true;
   // =========================================================
 
   const host = location.hostname;
@@ -711,6 +713,11 @@
     const MAX_UNMUTE_FIXES = 10;
     let lastGesture = -Infinity;
     const prepared = new WeakSet();
+    // Видео, которые вы уже запускали: дальше пауза/пуск у них работают как обычно, в том числе
+    // кнопками встроенного плеера Firefox — его нажатия странице не видны.
+    // Videos you have started: after that play/pause works normally for them, including Firefox's
+    // built-in player buttons, whose taps the page cannot see.
+    const armed = new WeakSet();
     const unmuteFixes = new WeakMap();
 
     const markGesture = (e) => { if (e.isTrusted) lastGesture = performance.now(); };
@@ -726,6 +733,75 @@
       if (e.isTrusted && videoAt(e.clientX, e.clientY)) lastGesture = performance.now();
     }, { capture: true, passive: true });
 
+    // ---------- Большая кнопка ▶ / Big ▶ button ----------
+    const buttons = new Map(); // видео → кнопка / video → button
+    const visible = new Set(); // видео на экране / videos on screen
+
+    function makeButton(video) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', RU ? 'Воспроизвести' : 'Play');
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M8 5v14l11-7z" fill="#fff"/></svg>';
+      b.style.cssText =
+        'position:absolute;z-index:2147483645;width:72px;height:72px;margin:0;padding:0 0 0 4px;display:none;' +
+        'border-radius:50%;border:2px solid rgba(255,255,255,.75);background:rgba(0,0,0,.5);cursor:pointer;' +
+        'align-items:center;justify-content:center;transform:translate(-50%,-50%);' +
+        '-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+      for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'dblclick']) {
+        b.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+      }
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Тап по нашей кнопке — точно ваше действие: запускаем со звуком.
+        // A tap on our button is certainly yours: start with sound.
+        armed.add(video);
+        lastGesture = performance.now();
+        video.muted = false;
+        video.play()?.catch?.(() => {});
+        updateButton(video);
+      });
+      document.body.appendChild(b);
+      return b;
+    }
+
+    // Кнопка висит в документе по координатам видео — при прокрутке едет вместе с ним.
+    // The button sits in the document at the video's coordinates, so it scrolls along with it.
+    function updateButton(video) {
+      if (!BIG_PLAY_BUTTON || !document.body) return;
+      const show = visible.has(video) && video.isConnected && video.paused && !document.fullscreenElement;
+      let b = buttons.get(video);
+      if (!show) { if (b) b.style.display = 'none'; return; }
+      const r = video.getBoundingClientRect();
+      if (r.width < 120 || r.height < 80) { if (b) b.style.display = 'none'; return; }
+      if (!b) { b = makeButton(video); buttons.set(video, b); }
+      b.style.left = r.left + r.width / 2 + window.scrollX + 'px';
+      b.style.top = r.top + r.height / 2 + window.scrollY + 'px';
+      b.style.display = 'flex';
+    }
+
+    // Кнопки создаём только для видео на экране — на странице с десятками роликов это экономно.
+    // Buttons are made only for on-screen videos — cheap on pages with dozens of clips.
+    const io = typeof IntersectionObserver === 'function'
+      ? new IntersectionObserver((entries) => {
+        for (const en of entries) {
+          if (en.isIntersecting) visible.add(en.target); else visible.delete(en.target);
+          updateButton(en.target);
+        }
+      })
+      : null;
+
+    // Сдвиги вёрстки (подгрузились картинки выше) — поправляем видимые кнопки, не чаще кадра.
+    // Layout shifts (images loaded above) — re-align visible buttons, at most once per frame.
+    let raf = 0;
+    const realign = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; for (const v of visible) updateButton(v); });
+    };
+    window.addEventListener('scroll', realign, { capture: true, passive: true });
+    window.addEventListener('resize', realign, { passive: true });
+    document.addEventListener('fullscreenchange', realign);
+
     // Новое видео: без autoplay, без muted, загружаем только начало (экономия трафика).
     // New video: no autoplay, not muted, preload metadata only (saves data).
     function prepare(el) {
@@ -737,6 +813,10 @@
       el.muted = false;
       if (el.preload !== 'none') el.preload = 'metadata';
       if (!el.paused && !userActive()) el.pause();
+      if (el.nodeName === 'VIDEO' && BIG_PLAY_BUTTON) {
+        if (io) io.observe(el);
+        else { visible.add(el); queueMicrotask(() => updateButton(el)); }
+      }
     }
 
     function scanNode(n) {
@@ -750,19 +830,25 @@
     }).observe(document, { childList: true, subtree: true });
     scanNode(document.documentElement);
 
-    // Запуск не по вашему действию — сразу пауза. / A start you did not trigger is paused at once.
+    // Запуск не по вашему действию — сразу пауза; видео, которые вы уже запускали, не трогаем.
+    // A start you did not trigger is paused at once; videos you already started are left alone.
     document.addEventListener('play', (e) => {
       const el = e.target;
       if (!(el instanceof HTMLMediaElement)) return;
       prepare(el);
-      if (!userActive()) el.pause();
+      if (armed.has(el)) { updateButton(el); return; }
+      if (userActive()) { armed.add(el); updateButton(el); return; }
+      el.pause();
+    }, true);
+    document.addEventListener('pause', (e) => {
+      if (e.target instanceof HTMLMediaElement) updateButton(e.target);
     }, true);
 
     // Сайт снова выключил звук сам — включаем обратно (ваше выключение кнопкой не трогаем).
     // The site muted again on its own — unmute (a mute you did yourself is kept).
     document.addEventListener('volumechange', (e) => {
       const el = e.target;
-      if (!(el instanceof HTMLMediaElement) || !el.muted || userActive()) return;
+      if (!(el instanceof HTMLMediaElement) || !el.muted || userActive() || armed.has(el)) return;
       const n = (unmuteFixes.get(el) || 0) + 1;
       if (n > MAX_UNMUTE_FIXES) return;
       unmuteFixes.set(el, n);

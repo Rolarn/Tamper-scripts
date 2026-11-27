@@ -55,7 +55,8 @@
 
 На сайтах из списка `CLICK_TO_PLAY_SITES` (по умолчанию reactor.cc и joyreactor, включая поддомены):
 
-- видео **не запускаются сами** — ни по атрибуту `autoplay`, ни скриптом сайта при прокрутке; запускаются только вашим тапом, кликом или клавишей;
+- видео **не запускаются сами** — ни по атрибуту `autoplay`, ни скриптом сайта при прокрутке;
+- по центру остановленного видео — **большая кнопка ▶**: тап запускает видео со звуком. После первого запуска пауза и пуск у этого видео работают как обычно, в том числе маленькими кнопками встроенного плеера;
 - видео **со звуком**: атрибут `muted` снимается, а если сайт снова выключает звук сам, скрипт включает его обратно; выключение звука вами кнопкой плеера сохраняется;
 - заранее загружается только начало видео — меньше трафика, страница с десятком роликов не тормозит.
 
@@ -111,6 +112,7 @@
 | `MX_MAX_HEIGHT` | `1080` | Предел качества ссылки на скачивание для видео `blob:` |
 | `CLICK_TO_PLAY_SITES` | `['reactor.cc', 'joyreactor.cc', 'joyreactor.com']` | Сайты без автозапуска и со звуком |
 | `GESTURE_WINDOW_MS` | `1000` | Сколько мс после вашего тапа запуск видео считается вашим |
+| `BIG_PLAY_BUTTON` | `true` | Большая кнопка ▶ на остановленных видео |
 
 > Настройки внутри файла перезапишутся при обновлении скрипта.
 
@@ -139,7 +141,7 @@
 - **Double-tap seek**, YouTube-style: double-tap the right third of any HTML5 video to skip 10 s forward, the left third to go back; every further tap adds 10 s. Centre, top strip and bottom control bar are left to the player. Disabled on YouTube, which has its own.
 - **Swipe seek**, MX Player-style, inline and in fullscreen: swipe left/right over the video to seek (full width = 2 min); the seek happens on release.
 - **Open in MX Player**: touch a video to show a small "▶ MX" button for 10 s; it pauses the video and opens it in MX Player at the same position (for `blob:` videos it falls back to a download link on the page or a loaded `.m3u8` stream).
-- **No autoplay, sound on** for `CLICK_TO_PLAY_SITES` (reactor.cc by default): videos start only on your tap/click/key, the `muted` attribute is removed and site-initiated muting is undone.
+- **No autoplay, sound on** for `CLICK_TO_PLAY_SITES` (reactor.cc by default): videos start only on your tap/click/key or the big ▶ button shown over paused videos, the `muted` attribute is removed and site-initiated muting is undone.
 - **Brightness/volume swipes**, MX Player-style, in fullscreen: left half = brightness (a filter on the video, 10–150%), right half = player volume (0–100% of the system volume). Web pages cannot change screen brightness or system volume.
 - **Volume 100%**: raises the stored volume of KVS (`kt_player`) players and turns any non-zero volume of other players into 100%. Muting still works.
 
