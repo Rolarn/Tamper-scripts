@@ -567,3 +567,37 @@ test('Другие сайты не затрагиваются / other sites are 
   p.v.play();
   assert.equal(p.isPaused(), false);
 });
+
+const bigPlay = (p) => [...p.w.document.body.querySelectorAll('button')]
+  .find((b) => ['Воспроизвести', 'Play'].includes(b.getAttribute('aria-label')));
+
+// ---------- Большая кнопка ▶ и «запущенные вами» видео (2.5.1) / Big ▶ button and armed videos (2.5.1) ----------
+
+test('Reactor: большая кнопка ▶ на остановленном видео запускает его со звуком / big ▶ starts the video with sound', async () => {
+  const p = reactorPage();
+  p.v.muted = true;
+  p.v.pause();
+  await sleep(10);
+  const btn = bigPlay(p);
+  assert.ok(btn, 'кнопка есть / button exists');
+  assert.equal(btn.style.display, 'flex');
+  assert.equal(btn.style.left, '200px');
+  assert.equal(btn.style.top, '100px');
+  btn.click();
+  assert.equal(p.isPaused(), false);
+  assert.equal(p.v.muted, false);
+  assert.equal(btn.style.display, 'none', 'во время воспроизведения кнопки нет / hidden while playing');
+});
+
+test('Reactor: после первого запуска встроенные кнопки плеера работают / after the first start built-in controls work', async () => {
+  const p = reactorPage();
+  p.v.pause();
+  await sleep(10);
+  bigPlay(p).click();
+  await sleep(1100); // нажатия встроенного плеера странице не видны / built-in control taps are invisible
+  p.v.pause();
+  p.v.play();
+  assert.equal(p.isPaused(), false);
+  const btn = bigPlay(p);
+  assert.equal(btn.style.display, 'none');
+});

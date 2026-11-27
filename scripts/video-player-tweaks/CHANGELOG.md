@@ -3,6 +3,16 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — [SemVer](https://semver.org/lang/ru/).
 Format: Keep a Changelog; versioning: SemVer.
 
+## [2.6.0] — 2026-11-27
+
+### Добавлено / Added
+- Большая кнопка ▶ по центру остановленного видео на сайтах из `CLICK_TO_PLAY_SITES`: тап запускает видео со звуком. Кнопки создаются только для видео на экране. Настройка `BIG_PLAY_BUTTON`.
+  Big ▶ button over paused videos on `CLICK_TO_PLAY_SITES`; starts playback with sound. Created only for on-screen videos.
+
+### Исправлено / Fixed
+- На reactor.cc видео не запускалось кнопкой встроенного плеера Firefox: её нажатия странице не видны, и скрипт принимал запуск за автозапуск. Теперь видео, которое вы запустили (большой кнопкой, тапом или клавишей), дальше играет и ставится на паузу без вмешательства скрипта; сайт по-прежнему не может запустить видео сам.
+  Videos on reactor.cc could not be started with Firefox's built-in play button (its taps are invisible to the page). Videos you started are now left alone afterwards.
+
 ## [2.5.0] — 2026-11-26
 
 ### Добавлено / Added
